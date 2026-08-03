@@ -1,0 +1,38 @@
+{
+  "pickLists": [
+    {
+      "pickListId": "530508",
+      "groupId": "CardScheme",
+      "values": [
+        "Visa",
+        "PayPak",
+        "MasterCard"
+      ]
+    },
+    {
+      "pickListId": "530509",
+      "groupId": "TransactionType",
+      "values": [
+        "Purchase",
+        "Cash Withdrawal"
+      ]
+    },
+    {
+      "pickListId": "530510",
+      "groupId": "ModeOfEntry",
+      "values": [
+        "Dip",
+        "Tap",
+        "Tokenized"
+      ]
+    },
+    {
+      "pickListId": "530511",
+      "groupId": "IssuerVsAcquirer",
+      "values": [
+        "On-us",
+        "Off-us"
+      ]
+    }
+  ]
+}

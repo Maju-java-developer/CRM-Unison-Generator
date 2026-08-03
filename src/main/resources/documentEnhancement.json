@@ -1,0 +1,17 @@
+{
+  "metaEntityId": "_2015-03-24_00000100046",
+  "views": [
+    {
+      "viewId": "_2026_07_27_7225732",
+      "attributes": [
+        {
+          "systemName": "LastFourDigitsPANCardType",
+          "attributeName": "Last four digits of PAN",
+          "attributeType": "String",
+          "tableColumn": "STRING_VAL20",
+          "mandatory": true
+        }
+      ]
+    }
+  ]
+}

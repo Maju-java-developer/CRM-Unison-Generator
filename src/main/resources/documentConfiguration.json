@@ -1,0 +1,27 @@
+{
+  "documentName": "Charge Card Not Working",
+  "documentType": "COMPLAINT",
+  "valueTreeNodeId": "5001100062",
+  "mapping": {
+    "sbpProductId": 19,
+    "complaintType": 177,
+    "categoryId": 3,
+    "turnAroundTime": 3360,
+    "adcCode": "4",
+    "escalationStrategyId": "1100000008"
+  },  "views": [
+  {
+    "viewName": "Complaint Details",
+    "attributes":   [
+      {
+        "systemName": "MobileAppError",
+        "attributeName": "Mobile App Error",
+        "attributeType": "PickList",
+        "tableColumn": "STRING_VAL54",
+        "pickListId" : "MobileAppError",
+        "mandatory": true
+      }
+    ]
+  }
+]
+}
