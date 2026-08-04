@@ -500,11 +500,11 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
                         !requests.isEmpty()
                 ) {
 
-                    String attributeSQL = MetaAttributeGenerator
-                            .generateMetaEntityAttribute(
-                                    requests
-                            );
-                    finalSQL.append(attributeSQL);
+//                    String attributeSQL = MetaAttributeGenerator
+////                            .generateMetaEntityAttribute(
+////                                    requests
+////                            );
+//                    finalSQL.append(attributeSQL);
 
                     finalSQL.append(
                             "\n\n"

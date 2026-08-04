@@ -20,33 +20,23 @@ public class MetaAttributeGenerator {
 //        }
 //    }
 
-    public static String generateMetaEntityAttribute(
-            List<AttributeRequest> requests
-    ) {
+    public static MetaEntAttribAndViewAttribResultSQL generateMetaEntityAttribute(
+            List<AttributeRequest> requests) {
 
-        StringBuilder finalSQL =
-                new StringBuilder();
+        StringBuilder insertSQL = new StringBuilder();
+        StringBuilder revertSQL = new StringBuilder();
 
-        for (
-                AttributeRequest request :
-                requests
-        ) {
+        for (AttributeRequest request :requests) {
+            MetaEntAttribAndViewAttribResultSQL metaEntAttribAndViewAttribResultSQL = generateAttributeSQL(request);
 
-            finalSQL.append(
-                    generateAttributeSQL(
-                            request
-                    )
-            );
-
-            finalSQL.append(
-                    "\n"
-            );
+            insertSQL.append(metaEntAttribAndViewAttribResultSQL.getAttributeSQl());
+            revertSQL.append(metaEntAttribAndViewAttribResultSQL.getRevertAttributeSQl());
         }
 
-        return finalSQL.toString();
+        return new MetaEntAttribAndViewAttribResultSQL(insertSQL.toString(), revertSQL.toString());
     }
 
-    private static String generateAttributeSQL(
+    private static MetaEntAttribAndViewAttribResultSQL generateAttributeSQL(
             AttributeRequest request
     ) {
     
@@ -55,39 +45,45 @@ public class MetaAttributeGenerator {
 
         String metaViewmetaEntityAttributeId = generateViewmetaEntityAttributeId();
 
-        StringBuilder sb =
-                new StringBuilder();
+        StringBuilder insertSQL = new StringBuilder();
+        StringBuilder revertSQL = new StringBuilder();
 
         // =====================================================
         // META_ENTITY_ATTRIB
         // =====================================================
 
-        sb.append("-- META ENTITY ATTRIBUTE FOR: " + request.getAttributeName())
+        insertSQL.append("-- META ENTITY ATTRIBUTE FOR: " + request.getAttributeName())
                 .append("\n");
 
-        sb.append(generateMetaEntityAttribute(
+        insertSQL.append(generateMetaEntityAttribute(
                 request,
                 metaEntitymetaEntityAttributeId
         ));
 
-        sb.append("\n\n");
+        insertSQL.append("\n\n");
 
         // =====================================================
         // META_VIEW_ATTRIB
         // =====================================================
 
-        sb.append("--META VIEW ATTRIBUTE MAPPING FOR: " + request.getAttributeName())
+        insertSQL.append("--META VIEW ATTRIBUTE MAPPING FOR: " + request.getAttributeName())
                 .append("\n");
 
-        sb.append(generateMetaViewAttribute(
+        insertSQL.append(generateMetaViewAttribute(
                 request,
                 metaEntitymetaEntityAttributeId,
                 metaViewmetaEntityAttributeId
         ));
 
-        sb.append("\n\n");
+        revertSQL.append(entityAttribAndViewAttribRevert(
+                request,
+                metaEntitymetaEntityAttributeId,
+                metaViewmetaEntityAttributeId)
+        );
 
-        return sb.toString();
+        insertSQL.append("\n\n");
+
+        return new MetaEntAttribAndViewAttribResultSQL(insertSQL.toString(), revertSQL.toString());
     }
 
     // =========================================================
@@ -365,6 +361,33 @@ public class MetaAttributeGenerator {
         sb.append(");");
 
         return sb.toString();
+    }
+
+    // =========================================================
+    // META ENTITY ATTRIBUTE AND VIEW ATTRIBUTE REVERT METHOD
+    // =========================================================
+    private static String entityAttribAndViewAttribRevert(
+            AttributeRequest attributeRequest,
+            String metaEntityAttributeId,
+            String metaViewAttribId
+    ) {
+
+        StringBuilder sb = new StringBuilder();
+
+        // DELETE VIEW ATTRIBUTE FIRST.
+        sb.append("\n").append("----------- REVERT META VIEW ATTRIB ").append(attributeRequest.getAttributeName()).append("\n").
+                append("DELETE FROM MEEZAN_UNISON.dbo.META_VIEW_ATTRIB WHERE ATTRIBUTE_ID =").
+                append("N'").
+                append(metaEntityAttributeId).append("';");
+
+        // DELETE META ENTITY ATTRIBUTE FIRST.
+        sb.append("\n\n").append("----------- REVERT META ENTITY ATTRIB ").append(attributeRequest.getAttributeName()).append("\n");
+        sb.append("DELETE FROM MEEZAN_UNISON.dbo.META_ENTITY_ATTRIB WHERE ATTRIBUTE_ID = ").
+        append("N'").
+        append(metaEntityAttributeId).append("';");
+        sb.append("\n");
+
+       return sb.toString();
     }
 
     // =========================================================
