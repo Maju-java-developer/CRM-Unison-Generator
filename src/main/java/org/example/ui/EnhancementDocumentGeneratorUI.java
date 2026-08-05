@@ -2,6 +2,7 @@ package org.example.ui;
 
 import org.example.AttributeRequest;
 import org.example.MetaAttributeGenerator;
+import org.example.MetaEntAttribAndViewAttribResultSQL;
 import org.example.MetaViewGenerator;
 import org.example.MetaViewResult;
 import org.example.utils.CoreUtils;
@@ -13,11 +14,14 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class EnhancementDocumentGeneratorUI extends JFrame {
 
@@ -25,10 +29,11 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
 
     private JPanel viewsContainer;
 
-    private JTextArea sqlOutput;
+    // Split SQL output into Insert and Revert TextAreas
+    private JTextArea insertSqlOutput;
+    private JTextArea revertSqlOutput;
 
-    private final List<ViewPanel> viewPanels =
-            new ArrayList<>();
+    private final List<ViewPanel> viewPanels = new ArrayList<>();
 
     public EnhancementDocumentGeneratorUI() {
 
@@ -36,9 +41,7 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
 
         setSize(1200, 800);
 
-        setDefaultCloseOperation(
-                JFrame.EXIT_ON_CLOSE
-        );
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         setLocationRelativeTo(null);
 
@@ -47,185 +50,104 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
 
     private void initUI() {
 
-        JPanel mainPanel =
-                new JPanel(new BorderLayout(10, 10));
+        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
 
         mainPanel.setBorder(
-                BorderFactory.createEmptyBorder(
-                        10,
-                        10,
-                        10,
-                        10
-                )
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)
         );
 
         // =====================================================
         // TOP
         // =====================================================
 
-        JPanel topPanel =
-                new JPanel(new FlowLayout(
-                        FlowLayout.LEFT
-                ));
+        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
-        topPanel.add(
-                new JLabel("Meta Entity ID:")
-        );
+        topPanel.add(new JLabel("Meta Entity ID:"));
 
-        metaEntityIdField =
-                new JTextField(30);
+        metaEntityIdField = new JTextField(30);
 
+        topPanel.add(metaEntityIdField);
         topPanel.add(
-                metaEntityIdField
-        );
-        topPanel.add(
-                new GeneratorNavigationPanel(
-                        "Enhancement Document"
-                ),
+                new GeneratorNavigationPanel("Enhancement Document"),
                 BorderLayout.NORTH
         );
-        mainPanel.add(
-                topPanel,
-                BorderLayout.NORTH
-        );
+        mainPanel.add(topPanel, BorderLayout.NORTH);
 
         // =====================================================
         // VIEWS
         // =====================================================
 
-        viewsContainer =
-                new JPanel();
+        viewsContainer = new JPanel();
 
         viewsContainer.setLayout(
-                new BoxLayout(
-                        viewsContainer,
-                        BoxLayout.Y_AXIS
-                )
+                new BoxLayout(viewsContainer, BoxLayout.Y_AXIS)
         );
 
-        JScrollPane viewsScrollPane =
-                new JScrollPane(
-                        viewsContainer
-                );
+        JScrollPane viewsScrollPane = new JScrollPane(viewsContainer);
 
-        mainPanel.add(
-                viewsScrollPane,
-                BorderLayout.CENTER
-        );
+        mainPanel.add(viewsScrollPane, BorderLayout.CENTER);
 
         // =====================================================
-        // BOTTOM
+        // BOTTOM (Generated SQL Tabs & Action Buttons)
         // =====================================================
 
-        JPanel bottomPanel =
-                new JPanel(
-                        new BorderLayout(
-                                5,
-                                5
-                        )
-                );
+        JPanel bottomPanel = new JPanel(new BorderLayout(5, 5));
 
-        JPanel buttonsPanel =
-                new JPanel(
-                        new FlowLayout(
-                                FlowLayout.LEFT
-                        )
-                );
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
-        JButton addViewButton =
-                new JButton(
-                        "+ Add View"
-                );
+        JButton addViewButton = new JButton("+ Add View");
+        addViewButton.addActionListener(e -> addView());
 
-        addViewButton.addActionListener(
-                e -> addView()
-        );
+        JButton generateButton = new JButton("Generate SQL");
+        generateButton.addActionListener(e -> generateSQL());
 
-        JButton generateButton =
-                new JButton(
-                        "Generate SQL"
-                );
+        JButton saveToFileButton = new JButton("Save To File");
+        saveToFileButton.addActionListener(e -> saveSQLToFile());
 
-        JButton saveToFileButton =
-                new JButton("Save To File");
+        JButton clearButton = new JButton("Clear");
+        clearButton.addActionListener(e -> {
+            insertSqlOutput.setText("");
+            revertSqlOutput.setText("");
+        });
 
-        saveToFileButton.addActionListener(
-                e -> saveSQLToFile()
-        );
+        buttonsPanel.add(addViewButton);
+        buttonsPanel.add(generateButton);
+        buttonsPanel.add(saveToFileButton);
+        buttonsPanel.add(clearButton);
 
-        generateButton.addActionListener(
-                e -> generateSQL()
-        );
+        bottomPanel.add(buttonsPanel, BorderLayout.NORTH);
 
-        buttonsPanel.add(
-                addViewButton
-        );
+        // Tabbed Pane for Insert & Revert SQL
+        insertSqlOutput = new JTextArea(12, 100);
+        insertSqlOutput.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
 
-        buttonsPanel.add(
-                generateButton
-        );
+        revertSqlOutput = new JTextArea(12, 100);
+        revertSqlOutput.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
 
-        buttonsPanel.add(
-                saveToFileButton
-        );
+        JTabbedPane sqlTabbedPane = new JTabbedPane();
+        sqlTabbedPane.addTab("Insert SQL", new JScrollPane(insertSqlOutput));
+        sqlTabbedPane.addTab("Revert SQL", new JScrollPane(revertSqlOutput));
 
-        bottomPanel.add(
-                buttonsPanel,
-                BorderLayout.NORTH
-        );
+        bottomPanel.add(sqlTabbedPane, BorderLayout.CENTER);
 
-        sqlOutput =
-                new JTextArea(
-                        12,
-                        100
-                );
+        mainPanel.add(bottomPanel, BorderLayout.SOUTH);
 
-        sqlOutput.setFont(
-                new Font(
-                        Font.MONOSPACED,
-                        Font.PLAIN,
-                        13
-                )
-        );
-
-        sqlOutput.setEditable(
-                false
-        );
-
-        bottomPanel.add(
-                new JScrollPane(
-                        sqlOutput
-                ),
-                BorderLayout.CENTER
-        );
-
-        mainPanel.add(
-                bottomPanel,
-                BorderLayout.SOUTH
-        );
-
-        add(
-                mainPanel
-        );
+        add(mainPanel);
 
         // Start with one view
         addView();
     }
 
     // =========================================================
-    // ADD VIEW
+    // SAVE TO FILE
     // =========================================================
     private void saveSQLToFile() {
 
-        String sql =
-                sqlOutput.getText();
+        String insertSql = insertSqlOutput.getText();
+        String revertSql = revertSqlOutput.getText();
 
-        // Check if TextArea is empty
-        if (
-                sql == null
-                        ||
-                        sql.trim().isEmpty()
-        ) {
+        if ((insertSql == null || insertSql.trim().isEmpty()) &&
+                (revertSql == null || revertSql.trim().isEmpty())) {
 
             JOptionPane.showMessageDialog(
                     this,
@@ -233,103 +155,84 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
                     "Warning",
                     JOptionPane.WARNING_MESSAGE
             );
-
             return;
         }
 
-        JFileChooser fileChooser =
-                new JFileChooser();
-
-        fileChooser.setDialogTitle(
-                "Save SQL Script"
-        );
-
-        // Default file name
-        fileChooser.setSelectedFile(
-                new File(
-                        "generated_script.sql"
-                )
-        );
-
-        int result =
-                fileChooser.showSaveDialog(
-                        this
-                );
-
-        if (
-                result !=
-                        JFileChooser.APPROVE_OPTION
-        ) {
-
+        String metaEntityId = metaEntityIdField.getText().trim();
+        if (metaEntityId.isEmpty()) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Meta Entity ID is required to save SQL files.",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE
+            );
             return;
         }
 
-        File selectedFile =
-                fileChooser.getSelectedFile();
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Select Directory to Save SQL Files");
+        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 
-        String filePath =
-                selectedFile.getAbsolutePath();
+        int result = fileChooser.showSaveDialog(this);
 
-        // Automatically add .sql extension
-        if (
-                !filePath
-                        .toLowerCase()
-                        .endsWith(".sql")
-        ) {
-
-            filePath += ".sql";
+        if (result != JFileChooser.APPROVE_OPTION) {
+            return;
         }
 
-        try (
-                BufferedWriter writer =
-                        new BufferedWriter(
-                                new FileWriter(
-                                        filePath
-                                )
-                        )
-        ) {
+        File baseDir = fileChooser.getSelectedFile();
 
-            writer.write(sql);
+        // Folder structure: current_date/metaEntityId/
+        String currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        File targetDir = new File(baseDir, currentDate + File.separator + metaEntityId);
+
+        if (!targetDir.exists()) {
+            targetDir.mkdirs();
+        }
+
+        // Output File paths
+        File insertFile = new File(targetDir, metaEntityId + "_Insert.sql");
+        File revertFile = new File(targetDir, metaEntityId + "_Revert.sql");
+
+        try {
+            // Write Insert SQL
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(insertFile))) {
+                writer.write(insertSql);
+            }
+
+            // Write Revert SQL
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(revertFile))) {
+                writer.write(revertSql);
+            }
 
             JOptionPane.showMessageDialog(
                     this,
-                    "SQL file saved successfully.\n\n"
-                            + filePath,
+                    "SQL files saved successfully!\n\nFolder Path:\n" + targetDir.getAbsolutePath(),
                     "Success",
                     JOptionPane.INFORMATION_MESSAGE
             );
 
-        } catch (
-                IOException ex
-        ) {
-
+        } catch (IOException ex) {
             JOptionPane.showMessageDialog(
                     this,
-                    "Failed to save SQL file:\n"
-                            + ex.getMessage(),
+                    "Failed to save SQL files:\n" + ex.getMessage(),
                     "Error",
                     JOptionPane.ERROR_MESSAGE
             );
         }
     }
+
+    // =========================================================
+    // ADD VIEW
+    // =========================================================
     private void addView() {
 
-        ViewPanel viewPanel =
-                new ViewPanel(
-                        viewPanels.size() + 1
-                );
+        ViewPanel viewPanel = new ViewPanel(viewPanels.size() + 1);
 
-        viewPanels.add(
-                viewPanel
-        );
+        viewPanels.add(viewPanel);
 
-        viewsContainer.add(
-                viewPanel
-        );
+        viewsContainer.add(viewPanel);
 
-        viewsContainer.add(
-                Box.createVerticalStrut(10)
-        );
+        viewsContainer.add(Box.createVerticalStrut(10));
 
         refreshUI();
     }
@@ -338,17 +241,11 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
     // REMOVE VIEW
     // =========================================================
 
-    private void removeView(
-            ViewPanel viewPanel
-    ) {
+    private void removeView(ViewPanel viewPanel) {
 
-        viewPanels.remove(
-                viewPanel
-        );
+        viewPanels.remove(viewPanel);
 
-        viewsContainer.remove(
-                viewPanel
-        );
+        viewsContainer.remove(viewPanel);
 
         refreshUI();
     }
@@ -361,38 +258,22 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
 
         try {
 
-            String metaEntityId =
-                    metaEntityIdField
-                            .getText()
-                            .trim();
+            String metaEntityId = metaEntityIdField.getText().trim();
 
             if (metaEntityId.isEmpty()) {
-
-                JOptionPane.showMessageDialog(
-                        this,
-                        "Meta Entity ID is required."
-                );
-
+                JOptionPane.showMessageDialog(this, "Meta Entity ID is required.");
                 return;
             }
 
             if (viewPanels.isEmpty()) {
-
-                JOptionPane.showMessageDialog(
-                        this,
-                        "At least one View is required."
-                );
-
+                JOptionPane.showMessageDialog(this, "At least one View is required.");
                 return;
             }
 
-            StringBuilder finalSQL =
-                    new StringBuilder();
+            StringBuilder finalInsertSQL = new StringBuilder();
+            StringBuilder finalRevertSQL = new StringBuilder();
 
-            for (
-                    ViewPanel viewPanel :
-                    viewPanels
-            ) {
+            for (ViewPanel viewPanel : viewPanels) {
 
                 // =================================================
                 // VIEW ID
@@ -400,130 +281,74 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
 
                 String metaViewId;
 
-                if (
-                        viewPanel
-                                .existingViewCheckBox
-                                .isSelected()
-                ) {
+                if (viewPanel.existingViewCheckBox.isSelected()) {
 
-                    metaViewId =
-                            viewPanel
-                                    .viewIdField
-                                    .getText()
-                                    .trim();
+                    metaViewId = viewPanel.viewIdField.getText().trim();
 
                     if (metaViewId.isEmpty()) {
-
-                        throw new IllegalArgumentException(
-                                "View ID is required."
-                        );
+                        throw new IllegalArgumentException("View ID is required.");
                     }
 
                 } else {
 
-                    String viewName =
-                            viewPanel
-                                    .viewNameField
-                                    .getText()
-                                    .trim();
+                    String viewName = viewPanel.viewNameField.getText().trim();
 
                     if (viewName.isEmpty()) {
-
-                        throw new IllegalArgumentException(
-                                "View Name is required."
-                        );
+                        throw new IllegalArgumentException("View Name is required.");
                     }
 
-                    finalSQL.append(
-                            "-- ===============================\n"
-                    );
+                    finalInsertSQL.append("-- ===============================\n");
+                    finalInsertSQL.append("-- NEW VIEW\n");
+                    finalInsertSQL.append("-- ===============================\n");
 
-                    finalSQL.append(
-                            "-- NEW VIEW\n"
-                    );
+                    MetaViewResult metaViewResult = MetaViewGenerator.generateSectionView(metaEntityId, viewName);
 
-                    finalSQL.append(
-                            "-- ===============================\n"
-                    );
-
-                    MetaViewResult metaViewResult=
-                            MetaViewGenerator
-                                    .generateSectionView(
-                                            metaEntityId,
-                                            viewName
-                                    );
-
-                    finalSQL.append(
-                            metaViewResult.getSql()
-                    );
+                    finalInsertSQL.append(metaViewResult.getSql());
                     metaViewId = metaViewResult.getMetaViewId();
-                    finalSQL.append(
-                            "\n\n"
-                    );
+                    finalInsertSQL.append("\n\n");
+                    finalRevertSQL.append("\n-------- REVERT META VIEW ------------ \n").
+                            append("DELETE FROM MEEZAN_UNISON.dbo.META_VIEW WHERE META_VIEW_ID =").
+                            append("N'").append(metaViewResult.getMetaViewId()).append("';").append("\n");
                 }
 
                 // =================================================
                 // ATTRIBUTES
                 // =================================================
 
-                List<AttributeRequest>
-                        requests =
-                        new ArrayList<>();
+                List<AttributeRequest> requests = new ArrayList<>();
 
-                for (
-                        int i = 0;
-                        i <
-                                viewPanel
-                                        .attributePanels
-                                        .size();
-                        i++
-                ) {
+                for (int i = 0; i < viewPanel.attributePanels.size(); i++) {
 
-                    AttributePanel attr =
-                            viewPanel
-                                    .attributePanels
-                                    .get(i);
+                    AttributePanel attr = viewPanel.attributePanels.get(i);
 
-                    AttributeRequest request =
-                            attr.toAttributeRequest(
-                                    metaEntityId,
-                                    metaViewId,
-                                    i + 1
-                            );
-
-                    requests.add(
-                            request
+                    AttributeRequest request = attr.toAttributeRequest(
+                            metaEntityId,
+                            metaViewId,
+                            i + 1
                     );
+
+                    requests.add(request);
                 }
 
-                if (
-                        !requests.isEmpty()
-                ) {
+                if (!requests.isEmpty()) {
 
-//                    String attributeSQL = MetaAttributeGenerator
-////                            .generateMetaEntityAttribute(
-////                                    requests
-////                            );
-//                    finalSQL.append(attributeSQL);
+                    MetaEntAttribAndViewAttribResultSQL attributeSQLResult =
+                            MetaAttributeGenerator.generateMetaEntityAttribute(requests);
 
-                    finalSQL.append(
-                            "\n\n"
-                    );
+                    finalInsertSQL.append(attributeSQLResult.getAttributeSQl()).append("\n\n");
+                    finalRevertSQL.append(attributeSQLResult.getRevertAttributeSQl()).append("\n\n");
                 }
             }
 
-            sqlOutput.setText(
-                    finalSQL.toString()
-            );
+            insertSqlOutput.setText(finalInsertSQL.toString());
+            revertSqlOutput.setText(finalRevertSQL.toString());
 
             JOptionPane.showMessageDialog(
                     this,
                     "SQL generated successfully."
             );
 
-        } catch (
-                Exception ex
-        ) {
+        } catch (Exception ex) {
 
             JOptionPane.showMessageDialog(
                     this,
@@ -549,177 +374,85 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
     // VIEW PANEL
     // =========================================================
 
-    private class ViewPanel
-            extends JPanel {
+    private class ViewPanel extends JPanel {
 
-        private final JCheckBox
-                existingViewCheckBox;
+        private final JCheckBox existingViewCheckBox;
 
-        private final JTextField
-                viewIdField;
+        private final JTextField viewIdField;
 
-        private final JTextField
-                viewNameField;
+        private final JTextField viewNameField;
 
-        private final JPanel
-                attributesContainer;
+        private final JPanel attributesContainer;
 
-        private final List<AttributePanel>
-                attributePanels =
-                new ArrayList<>();
+        private final List<AttributePanel> attributePanels = new ArrayList<>();
 
-        public ViewPanel(
-                int viewNumber
-        ) {
+        public ViewPanel(int viewNumber) {
 
-            setLayout(
-                    new BorderLayout(
-                            5,
-                            5
-                    )
-            );
+            setLayout(new BorderLayout(5, 5));
 
-            setBorder(
-                    BorderFactory
-                            .createTitledBorder(
-                                    "View "
-                                            + viewNumber
-                            )
-            );
+            setBorder(BorderFactory.createTitledBorder("View " + viewNumber));
 
             // =================================================
             // VIEW HEADER
             // =================================================
 
-            JPanel viewHeader =
-                    new JPanel(
-                            new FlowLayout(
-                                    FlowLayout.LEFT
-                            )
-                    );
+            JPanel viewHeader = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
-            existingViewCheckBox =
-                    new JCheckBox(
-                            "Existing View"
-                    );
+            existingViewCheckBox = new JCheckBox("Existing View");
 
-            viewHeader.add(
-                    existingViewCheckBox
-            );
+            viewHeader.add(existingViewCheckBox);
 
-            viewHeader.add(
-                    new JLabel(
-                            "View ID:"
-                    )
-            );
+            viewHeader.add(new JLabel("View ID:"));
 
-            viewIdField =
-                    new JTextField(
-                            25
-                    );
+            viewIdField = new JTextField(25);
 
-            viewHeader.add(
-                    viewIdField
-            );
+            viewHeader.add(viewIdField);
 
-            viewHeader.add(
-                    new JLabel(
-                            "New View Name:"
-                    )
-            );
+            viewHeader.add(new JLabel("New View Name:"));
 
-            viewNameField =
-                    new JTextField(
-                            25
-                    );
+            viewNameField = new JTextField(25);
 
-            viewHeader.add(
-                    viewNameField
-            );
+            viewHeader.add(viewNameField);
 
-            JButton removeViewButton =
-                    new JButton(
-                            "Remove View"
-                    );
+            JButton removeViewButton = new JButton("Remove View");
 
-            removeViewButton
-                    .addActionListener(
-                            e ->
-                                    removeView(
-                                            this
-                                    )
-                    );
+            removeViewButton.addActionListener(e -> removeView(this));
 
-            viewHeader.add(
-                    removeViewButton
-            );
+            viewHeader.add(removeViewButton);
 
-            add(
-                    viewHeader,
-                    BorderLayout.NORTH
-            );
+            add(viewHeader, BorderLayout.NORTH);
 
             // =================================================
             // ATTRIBUTE CONTAINER
             // =================================================
 
-            attributesContainer =
-                    new JPanel();
+            attributesContainer = new JPanel();
 
             attributesContainer.setLayout(
-                    new BoxLayout(
-                            attributesContainer,
-                            BoxLayout.Y_AXIS
-                    )
+                    new BoxLayout(attributesContainer, BoxLayout.Y_AXIS)
             );
 
-            add(
-                    new JScrollPane(
-                            attributesContainer
-                    ),
-                    BorderLayout.CENTER
-            );
+            add(new JScrollPane(attributesContainer), BorderLayout.CENTER);
 
             // =================================================
             // BUTTONS
             // =================================================
 
-            JPanel attributeButtons =
-                    new JPanel(
-                            new FlowLayout(
-                                    FlowLayout.LEFT
-                            )
-                    );
+            JPanel attributeButtons = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
-            JButton addAttributeButton =
-                    new JButton(
-                            "+ Add Attribute"
-                    );
+            JButton addAttributeButton = new JButton("+ Add Attribute");
 
-            addAttributeButton
-                    .addActionListener(
-                            e ->
-                                    addAttribute()
-                    );
+            addAttributeButton.addActionListener(e -> addAttribute());
 
-            attributeButtons.add(
-                    addAttributeButton
-            );
+            attributeButtons.add(addAttributeButton);
 
-            add(
-                    attributeButtons,
-                    BorderLayout.SOUTH
-            );
+            add(attributeButtons, BorderLayout.SOUTH);
 
             // =================================================
             // VIEW TYPE TOGGLE
             // =================================================
 
-            existingViewCheckBox
-                    .addActionListener(
-                            e ->
-                                    updateViewMode()
-                    );
+            existingViewCheckBox.addActionListener(e -> updateViewMode());
 
             updateViewMode();
 
@@ -729,54 +462,31 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
 
         private void updateViewMode() {
 
-            boolean existing =
-                    existingViewCheckBox
-                            .isSelected();
+            boolean existing = existingViewCheckBox.isSelected();
 
-            viewIdField.setEnabled(
-                    existing
-            );
+            viewIdField.setEnabled(existing);
 
-            viewNameField.setEnabled(
-                    !existing
-            );
+            viewNameField.setEnabled(!existing);
         }
 
         private void addAttribute() {
 
-            AttributePanel attributePanel =
-                    new AttributePanel(
-                            attributePanels.size() + 1
-                    );
+            AttributePanel attributePanel = new AttributePanel(attributePanels.size() + 1);
 
-            attributePanels.add(
-                    attributePanel
-            );
+            attributePanels.add(attributePanel);
 
-            attributesContainer.add(
-                    attributePanel
-            );
+            attributesContainer.add(attributePanel);
 
-            attributesContainer.add(
-                    Box.createVerticalStrut(
-                            5
-                    )
-            );
+            attributesContainer.add(Box.createVerticalStrut(5));
 
             refreshUI();
         }
 
-        private void removeAttribute(
-                AttributePanel panel
-        ) {
+        private void removeAttribute(AttributePanel panel) {
 
-            attributePanels.remove(
-                    panel
-            );
+            attributePanels.remove(panel);
 
-            attributesContainer.remove(
-                    panel
-            );
+            attributesContainer.remove(panel);
 
             refreshUI();
         }
@@ -786,97 +496,55 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
     // ATTRIBUTE PANEL
     // =========================================================
 
-    private class AttributePanel
-            extends JPanel {
+    private class AttributePanel extends JPanel {
 
-        private final JTextField
-                attributeNameField;
+        private final JTextField attributeNameField;
 
-        private final JComboBox<String>
-                attributeTypeCombo;
+        private final JComboBox<String> attributeTypeCombo;
 
         private final JComboBox<String> tableColumnField;
 
-        private final JTextField
-                pickListIdField;
+        private final JTextField pickListIdField;
 
-        private final JCheckBox
-                mandatoryCheckBox;
+        private final JCheckBox mandatoryCheckBox;
 
-        public AttributePanel(
-                int attributeNumber
-        ) {
+        public AttributePanel(int attributeNumber) {
 
-            setLayout(
-                    new FlowLayout(
-                            FlowLayout.LEFT
-                    )
-            );
+            setLayout(new FlowLayout(FlowLayout.LEFT));
 
-            setBorder(
-                    BorderFactory
-                            .createLineBorder(
-                                    Color.LIGHT_GRAY
-                            )
-            );
+            setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
 
-            add(
-                    new JLabel(
-                            "Attribute "
-                                    + attributeNumber
-                                    + ":"
-                    )
-            );
-
-            // =================================================
-            // SYSTEM NAME
-            // =================================================
+            add(new JLabel("Attribute " + attributeNumber + ":"));
 
             // =================================================
             // ATTRIBUTE NAME
             // =================================================
 
-            add(
-                    new JLabel(
-                            "Attribute Name:"
-                    )
-            );
+            add(new JLabel("Attribute Name:"));
 
-            attributeNameField =
-                    new JTextField(
-                            20
-                    );
+            attributeNameField = new JTextField(20);
 
-            add(
-                    attributeNameField
-            );
+            add(attributeNameField);
 
             // =================================================
             // ATTRIBUTE TYPE
             // =================================================
 
-            add(
-                    new JLabel(
-                            "Type:"
-                    )
+            add(new JLabel("Type:"));
+
+            attributeTypeCombo = new JComboBox<>(
+                    new String[]{
+                            "String",
+                            "PickList",
+                            "DateTime",
+                            "Boolean",
+                            "Long",
+                            "Double",
+                            "Integer"
+                    }
             );
 
-            attributeTypeCombo =
-                    new JComboBox<>(
-                            new String[]{
-                                    "String",
-                                    "PickList",
-                                    "DateTime",
-                                    "Boolean",
-                                    "Long",
-                                    "Double",
-                                    "Integer"
-                            }
-                    );
-
-            add(
-                    attributeTypeCombo
-            );
+            add(attributeTypeCombo);
 
             // =================================================
             // TABLE COLUMN
@@ -891,54 +559,29 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
             // PICKLIST ID
             // =================================================
 
-            add(
-                    new JLabel(
-                            "PickList ID:"
-                    )
-            );
+            add(new JLabel("PickList ID:"));
 
-            pickListIdField =
-                    new JTextField(
-                            10
-                    );
+            pickListIdField = new JTextField(10);
 
-            add(
-                    pickListIdField
-            );
+            add(pickListIdField);
 
             // =================================================
             // MANDATORY
             // =================================================
 
-            mandatoryCheckBox =
-                    new JCheckBox(
-                            "Mandatory"
-                    );
+            mandatoryCheckBox = new JCheckBox("Mandatory");
 
-            add(
-                    mandatoryCheckBox
-            );
+            add(mandatoryCheckBox);
 
             // =================================================
             // REMOVE
             // =================================================
 
-            JButton removeButton =
-                    new JButton(
-                            "Remove"
-                    );
+            JButton removeButton = new JButton("Remove");
 
-            removeButton
-                    .addActionListener(
-                            e ->
-                                    removeAttributePanel(
-                                            this
-                                    )
-                    );
+            removeButton.addActionListener(e -> removeAttributePanel(this));
 
-            add(
-                    removeButton
-            );
+            add(removeButton);
 
             // =================================================
             // TYPE CHANGE
@@ -976,16 +619,16 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
         }
 
         private void updatePickListField() {
-            boolean isPickList ="PickList".equalsIgnoreCase((String)attributeTypeCombo.getSelectedItem());
-            pickListIdField.setEnabled(
-                    isPickList
-            );
+            boolean isPickList = "PickList".equalsIgnoreCase((String) attributeTypeCombo.getSelectedItem());
+            pickListIdField.setEnabled(isPickList);
 
-            if (!isPickList) {pickListIdField.setText("");}
+            if (!isPickList) {
+                pickListIdField.setText("");
+            }
         }
 
         private void removeAttributePanel(AttributePanel panel) {
-            for (ViewPanel viewPanel :viewPanels) {
+            for (ViewPanel viewPanel : viewPanels) {
                 if (viewPanel.attributePanels.contains(panel)) {
                     viewPanel.removeAttribute(panel);
                     break;
@@ -997,42 +640,25 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
         // CREATE ATTRIBUTE REQUEST
         // =====================================================
 
-        public AttributeRequest
-        toAttributeRequest(
+        public AttributeRequest toAttributeRequest(
                 String metaEntityId,
                 String metaViewId,
                 int displayOrder
         ) {
 
-            String systemName = CoreUtils.generateSystemKey(attributeNameField
-                            .getText()
-                            .trim());
+            String systemName = CoreUtils.generateSystemKey(attributeNameField.getText().trim());
 
-            String attributeName =
-                    attributeNameField
-                            .getText()
-                            .trim();
+            String attributeName = attributeNameField.getText().trim();
 
-            String attributeType =
-                    (String)
-                            attributeTypeCombo
-                                    .getSelectedItem();
+            String attributeType = (String) attributeTypeCombo.getSelectedItem();
 
-            String tableColumn =tableColumnField.getSelectedItem().toString();
+            String tableColumn = Objects.requireNonNull(tableColumnField.getSelectedItem()).toString();
 
             String pickListId = null;
 
-            if (
-                    "PickList"
-                            .equalsIgnoreCase(
-                                    attributeType
-                            )
-            ) {
+            if ("PickList".equalsIgnoreCase(attributeType)) {
 
-                pickListId =
-                        pickListIdField
-                                .getText()
-                                .trim();
+                pickListId = pickListIdField.getText().trim();
 
                 if (pickListId.isEmpty()) {
                     throw new IllegalArgumentException(
@@ -1067,9 +693,7 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
     // MAIN
     // =========================================================
 
-    public static void main(
-            String[] args
-    ) {
+    public static void main(String[] args) {
         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
                 if ("Nimbus".equals(info.getName())) {
@@ -1077,26 +701,12 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
                     break;
                 }
             }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(EnhancementDocumentGeneratorUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(EnhancementDocumentGeneratorUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(EnhancementDocumentGeneratorUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+        } catch (Exception ex) {
             java.util.logging.Logger.getLogger(EnhancementDocumentGeneratorUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
-        SwingUtilities.invokeLater(
-                () -> {
-
-                    EnhancementDocumentGeneratorUI
-                            frame =
-                            new EnhancementDocumentGeneratorUI();
-
-                    frame.setVisible(
-                            true
-                    );
-                }
-        );
+        SwingUtilities.invokeLater(() -> {
+            EnhancementDocumentGeneratorUI frame = new EnhancementDocumentGeneratorUI();
+            frame.setVisible(true);
+        });
     }
 }
