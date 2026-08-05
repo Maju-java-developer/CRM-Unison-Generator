@@ -795,8 +795,7 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
         private final JComboBox<String>
                 attributeTypeCombo;
 
-        private final JTextField
-                tableColumnField;
+        private final JComboBox<String> tableColumnField;
 
         private final JTextField
                 pickListIdField;
@@ -883,20 +882,10 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
             // TABLE COLUMN
             // =================================================
 
-            add(
-                    new JLabel(
-                            "Table Column:"
-                    )
-            );
-
-            tableColumnField =
-                    new JTextField(
-                            12
-                    );
-
-            add(
-                    tableColumnField
-            );
+            add(new JLabel("Column"));
+            tableColumnField = new JComboBox<>();
+            tableColumnField.setPreferredSize(new Dimension(130, 24));
+            add(tableColumnField);
 
             // =================================================
             // PICKLIST ID
@@ -955,8 +944,35 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
             // TYPE CHANGE
             // =================================================
 
-            attributeTypeCombo.addActionListener(e ->updatePickListField());
+            attributeTypeCombo.addActionListener(e -> {
+                        updatePickListField();
+                        updatetableColumnFields();
+                    }
+            );
             updatePickListField();
+            updatetableColumnFields();
+        }
+
+        private void updatetableColumnFields() {
+            tableColumnField.removeAllItems();
+            String type = (String) attributeTypeCombo.getSelectedItem();
+
+            if ("String".equalsIgnoreCase(type) || "pickList".equalsIgnoreCase(type)) {
+                int count = "pickList".equalsIgnoreCase(type) ? 80 : 60;
+                for (int i = 1; i <= count; i++) {
+                    tableColumnField.addItem(String.format("STRING_VAL%02d", i));
+                }
+            } else if ("DateTime".equalsIgnoreCase(type)) {
+                for (int i = 1; i <= 20; i++) tableColumnField.addItem("DATE_VAL" + i);
+            } else if ("Boolean".equalsIgnoreCase(type)) {
+                for (int i = 1; i <= 20; i++) tableColumnField.addItem("BOOLEAN_VAL" + i);
+            } else if ("Long".equalsIgnoreCase(type)) {
+                for (int i = 1; i <= 20; i++) tableColumnField.addItem("LONG_VAL" + i);
+            } else if ("Integer".equalsIgnoreCase(type)) {
+                for (int i = 1; i <= 20; i++) tableColumnField.addItem("INTEGER_VAL" + i);
+            } else if ("Double".equalsIgnoreCase(type)) {
+                for (int i = 1; i <= 20; i++) tableColumnField.addItem("DOUBLE_VAL" + i);
+            }
         }
 
         private void updatePickListField() {
@@ -1002,10 +1018,7 @@ public class EnhancementDocumentGeneratorUI extends JFrame {
                             attributeTypeCombo
                                     .getSelectedItem();
 
-            String tableColumn =
-                    tableColumnField
-                            .getText()
-                            .trim();
+            String tableColumn =tableColumnField.getSelectedItem().toString();
 
             String pickListId = null;
 
