@@ -1,17 +1,22 @@
 package org.example.utils;
 
+import javax.swing.*;
+import java.awt.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+
 public class CoreUtils {
+
     /**
      * Generate KEY
-     *
-     * Example:
-     * incorrect lodgment by call center
-     *
-     * =>
-     * INCORRECT_LODGMENT_BY_CALL_CENTER
+     * Example: "incorrect lodgment by call center" -> "INCORRECT_LODGMENT_BY_CALL_CENTER"
      */
     public static String generateSystemKey(String fieldName) {
-
+        if (fieldName == null) return "";
         return fieldName
                 .trim()
                 .toUpperCase()
@@ -20,4 +25,104 @@ public class CoreUtils {
                 .replaceAll("^_|_$", "");
     }
 
+    // =========================================================
+    // 1. DYNAMIC TABLE COLUMNS GENERATOR
+    // =========================================================
+    /**
+     * Populates table column combo boxes based on attribute data types.
+     */
+    public static void updateTableColumnFields(JComboBox<String> tableColumnCombo, String type) {
+        tableColumnCombo.removeAllItems();
+        if (type == null) return;
+
+        if ("String".equalsIgnoreCase(type) || "pickList".equalsIgnoreCase(type)) {
+            int count = "pickList".equalsIgnoreCase(type) ? 80 : 60;
+            for (int i = 1; i <= count; i++) {
+                tableColumnCombo.addItem(String.format("STRING_VAL%02d", i));
+            }
+        } else if ("DateTime".equalsIgnoreCase(type)) {
+            for (int i = 1; i <= 20; i++) tableColumnCombo.addItem("DATE_VAL" + i);
+        } else if ("Boolean".equalsIgnoreCase(type)) {
+            for (int i = 1; i <= 20; i++) tableColumnCombo.addItem("BOOLEAN_VAL" + i);
+        } else if ("Long".equalsIgnoreCase(type)) {
+            for (int i = 1; i <= 20; i++) tableColumnCombo.addItem("LONG_VAL" + i);
+        } else if ("Integer".equalsIgnoreCase(type)) {
+            for (int i = 1; i <= 20; i++) tableColumnCombo.addItem("INTEGER_VAL" + i);
+        } else if ("Double".equalsIgnoreCase(type)) {
+            for (int i = 1; i <= 20; i++) tableColumnCombo.addItem("DOUBLE_VAL" + i);
+        }
+    }
+
+    // =========================================================
+    // 2. REUSABLE FILE & DIRECTORY SAVE LOGIC
+    // =========================================================
+    /**
+     * Creates directory hierarchy (yyyy-MM-dd/subFolderName) and saves insert/revert SQL scripts.
+     */
+    public static void saveSqlFiles(Component parent, String insertSql, String revertSql, String subFolderName) {
+        if ((insertSql == null || insertSql.trim().isEmpty()) &&
+                (revertSql == null || revertSql.trim().isEmpty())) {
+            JOptionPane.showMessageDialog(parent, "There is no SQL content to save.", "Warning", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Select Target Directory to Save SQL Files");
+        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+
+        int result = fileChooser.showSaveDialog(parent);
+        if (result != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File baseDir = fileChooser.getSelectedFile();
+        String currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        File targetDir = new File(baseDir, currentDate + File.separator + subFolderName);
+
+        if (!targetDir.exists() && !targetDir.mkdirs()) {
+            JOptionPane.showMessageDialog(parent, "Failed to create folder structure.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        File insertFile = new File(targetDir, subFolderName + "_Insert.sql");
+        File revertFile = new File(targetDir, subFolderName + "_Revert.sql");
+
+        try {
+            if (insertSql != null && !insertSql.trim().isEmpty()) {
+                try (BufferedWriter writer = new BufferedWriter(new FileWriter(insertFile))) {
+                    writer.write(insertSql);
+                }
+            }
+            if (revertSql != null && !revertSql.trim().isEmpty()) {
+                try (BufferedWriter writer = new BufferedWriter(new FileWriter(revertFile))) {
+                    writer.write(revertSql);
+                }
+            }
+
+            JOptionPane.showMessageDialog(
+                    parent,
+                    "SQL files saved successfully!\n\nFolder Path:\n" + targetDir.getAbsolutePath(),
+                    "Success",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(parent, "Failed to save SQL files:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Applies Nimbus Look and Feel across UI frames.
+     */
+    public static void applyNimbusLookAndFeel(Class<?> clazz) {
+        try {
+            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+                if ("Nimbus".equals(info.getName())) {
+                    UIManager.setLookAndFeel(info.getClassName());
+                    break;
+                }
+            }
+        } catch (Exception ex) {
+            java.util.logging.Logger.getLogger(clazz.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        }
+    }
 }

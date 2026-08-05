@@ -2,6 +2,7 @@ package org.example.ui;
 
 import org.example.PickListGenerator;
 import org.example.config.PickListConfig;
+import org.example.utils.CoreUtils;
 
 import javax.swing.*;
 import java.awt.*;
@@ -52,7 +53,13 @@ public class PickListGeneratorUI extends JFrame {
         generateButton.addActionListener(e -> generateSQL());
 
         JButton saveToFileButton = new JButton("Save To File");
-        saveToFileButton.addActionListener(e -> saveBothSQLFiles());
+        saveToFileButton.addActionListener(e ->
+                    CoreUtils.saveSqlFiles(
+                            this,
+                            insertSqlOutput.getText(),
+                            revertSqlOutput.getText(),
+                            "PickList Creation")
+        );
 
         JButton clearButton = new JButton("Clear");
         clearButton.addActionListener(e -> {
@@ -116,95 +123,6 @@ public class PickListGeneratorUI extends JFrame {
         return textArea;
     }
 
-    /**
-     * Saves SQL files in the structured format:
-     * YYYY-MM-DD/PickList Creation/PickList_Insert.sql
-     * YYYY-MM-DD/PickList Creation/PickList_Revert.sql
-     */
-    private void saveBothSQLFiles() {
-
-        String insertSql = insertSqlOutput.getText();
-        String revertSql = revertSqlOutput.getText();
-
-        if (insertSql == null || insertSql.trim().isEmpty() || revertSql == null || revertSql.trim().isEmpty()) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "There is no SQL to save. Please click 'Generate SQL' first.",
-                    "Warning",
-                    JOptionPane.WARNING_MESSAGE
-            );
-            return;
-        }
-
-        // Target directory select karne ke liye file chooser
-        JFileChooser folderChooser = new JFileChooser();
-        folderChooser.setDialogTitle("Select Target Directory");
-        folderChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-
-        int result = folderChooser.showSaveDialog(this);
-
-        if (result != JFileChooser.APPROVE_OPTION) {
-            return;
-        }
-
-        File baseDirectory = folderChooser.getSelectedFile();
-
-        // 1. Format date folder: YYYY-MM-DD
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        String dateFolderName = dateFormat.format(new Date());
-
-        // 2. Build folder hierarchy: <SelectedDirectory>/2026-08-03/PickList Creation/
-        File dateFolder = new File(baseDirectory, dateFolderName);
-        File pickListCreationFolder = new File(dateFolder, "PickList Creation");
-
-        // Hierarchy create karein agar exist nahi karti
-        if (!pickListCreationFolder.exists()) {
-            boolean created = pickListCreationFolder.mkdirs();
-            if (!created) {
-                JOptionPane.showMessageDialog(
-                        this,
-                        "Failed to create directory structure.",
-                        "Error",
-                        JOptionPane.ERROR_MESSAGE
-                );
-                return;
-            }
-        }
-
-        // 3. Define Insert & Revert files
-        File insertFile = new File(pickListCreationFolder, "PickList_Insert.sql");
-        File revertFile = new File(pickListCreationFolder, "PickList_Revert.sql");
-
-        try {
-            // Write Insert SQL
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(insertFile))) {
-                writer.write(insertSql);
-            }
-
-            // Write Revert SQL
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(revertFile))) {
-                writer.write(revertSql);
-            }
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Files saved successfully!\n\n"
-                            + "Folder Path: " + pickListCreationFolder.getAbsolutePath() + "\n\n"
-                            + "• " + insertFile.getName() + "\n"
-                            + "• " + revertFile.getName(),
-                    "Success",
-                    JOptionPane.INFORMATION_MESSAGE
-            );
-
-        } catch (IOException ex) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Failed to save SQL files:\n" + ex.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE
-            );
-        }
-    }
     private void addPickList() {
         PickListPanel panel = new PickListPanel(pickListPanels.size() + 1);
         pickListPanels.add(panel);
@@ -408,16 +326,7 @@ public class PickListGeneratorUI extends JFrame {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            try {
-                for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                    if ("Nimbus".equals(info.getName())) {
-                        UIManager.setLookAndFeel(info.getClassName());
-                        break;
-                    }
-                }
-            } catch (Exception ex) {
-                java.util.logging.Logger.getLogger(PickListGeneratorUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-            }
+            CoreUtils.applyNimbusLookAndFeel(PickListGeneratorUI.class);
             PickListGeneratorUI frame = new PickListGeneratorUI();
             frame.setVisible(true);
         });

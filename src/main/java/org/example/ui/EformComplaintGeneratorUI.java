@@ -367,22 +367,7 @@ public class EformComplaintGeneratorUI extends JFrame {
             tableColumnField.removeAllItems();
             String type = (String) attributeTypeCombo.getSelectedItem();
 
-            if ("String".equalsIgnoreCase(type) || "pickList".equalsIgnoreCase(type)) {
-                int count = "pickList".equalsIgnoreCase(type) ? 80 : 60;
-                for (int i = 1; i <= count; i++) {
-                    tableColumnField.addItem(String.format("STRING_VAL%02d", i));
-                }
-            } else if ("DateTime".equalsIgnoreCase(type)) {
-                for (int i = 1; i <= 20; i++) tableColumnField.addItem("DATE_VAL" + i);
-            } else if ("Boolean".equalsIgnoreCase(type)) {
-                for (int i = 1; i <= 20; i++) tableColumnField.addItem("BOOLEAN_VAL" + i);
-            } else if ("Long".equalsIgnoreCase(type)) {
-                for (int i = 1; i <= 20; i++) tableColumnField.addItem("LONG_VAL" + i);
-            } else if ("Integer".equalsIgnoreCase(type)) {
-                for (int i = 1; i <= 20; i++) tableColumnField.addItem("INTEGER_VAL" + i);
-            } else if ("Double".equalsIgnoreCase(type)) {
-                for (int i = 1; i <= 20; i++) tableColumnField.addItem("DOUBLE_VAL" + i);
-            }
+            CoreUtils.updateTableColumnFields(tableColumnField, type);
         }
 
         private void updatepickListIdField() {
@@ -585,87 +570,18 @@ public class EformComplaintGeneratorUI extends JFrame {
         String insertSql = insertSqlArea.getText();
         String revertSql = revertSqlArea.getText();
 
-        if ((insertSql == null || insertSql.trim().isEmpty()) &&
-                (revertSql == null || revertSql.trim().isEmpty())) {
-            JOptionPane.showMessageDialog(this, "There is no SQL to save.", "Warning", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
         String documentName = documentNameField.getText().trim();
         String documentType = documentTypeCombo.getSelectedItem().toString();
-
-        if (documentName.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Document Name is required to save files.", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Select Root Directory to Save SQL Files");
-        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-
-        int result = fileChooser.showSaveDialog(this);
-        if (result != JFileChooser.APPROVE_OPTION) {
-            return;
-        }
-
-        File baseDir = fileChooser.getSelectedFile();
-
-        // 1. Current Date Folder (e.g. 2026-08-04)
-        String currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
         // 2. Folder Name: <DocumentType>_<DocumentName>
         String folderName = documentType + "_" + documentName;
 
-        File targetDirectory = new File(baseDir, currentDate + File.separator + folderName);
-
-        if (!targetDirectory.exists()) {
-            targetDirectory.mkdirs();
-        }
-
-        // File names
-        File insertFile = new File(targetDirectory, documentName + "_Insert.sql");
-        File revertFile = new File(targetDirectory, documentName + "_Revert.sql");
-
-        try {
-            // Write Insert SQL File
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(insertFile))) {
-                writer.write(insertSql);
-            }
-
-            // Write Revert SQL File
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(revertFile))) {
-                writer.write(revertSql);
-            }
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "SQL files saved successfully!\n\nLocation:\n" + targetDirectory.getAbsolutePath(),
-                    "Success",
-                    JOptionPane.INFORMATION_MESSAGE
-            );
-
-        } catch (IOException ex) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Failed to save SQL files:\n" + ex.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE
-            );
-        }
+        CoreUtils.saveSqlFiles(this, insertSql, revertSql, folderName);
     }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            try {
-                for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                    if ("Nimbus".equals(info.getName())) {
-                        javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                        break;
-                    }
-                }
-            } catch (Exception ex) {
-                java.util.logging.Logger.getLogger(EformComplaintGeneratorUI.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-            }
+            CoreUtils.applyNimbusLookAndFeel(EformComplaintGeneratorUI.class);
             new EformComplaintGeneratorUI().setVisible(true);
         });
     }
